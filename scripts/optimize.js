@@ -5,6 +5,7 @@ async function optimizeContent() {
     // Define patterns to filter out
     const excludePatterns = [
         '/docs/svelte/legacy',
+        '/docs/kit/migrating',
         '/tutorial'
     ];
     

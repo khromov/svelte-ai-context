@@ -20,34 +20,49 @@ async function optimizeContent() {
             throw new Error('Invalid JSON structure: expected "blocks" array');
         }
         
-        // Store original count
+        // Store original count and size
         const originalCount = data.blocks.length;
+        const originalSize = Buffer.from(JSON.stringify(data)).length;
         
-        // Create new object with filtered blocks
+        // Create new object with transformed blocks
         const optimizedData = {
             ...data,
-            blocks: data.blocks.filter(block => {
-                // Filter out empty content
-                if (!block.content) return false;
-                
-                // Filter out excluded paths
-                if (block.href) {
-                    return !excludePatterns.some(pattern => 
-                        block.href.startsWith(pattern)
-                    );
-                }
-                
-                return true;
-            })
+            blocks: data.blocks
+                .filter(block => {
+                    // Filter out empty content
+                    if (!block.content) return false;
+                    
+                    // Filter out excluded paths
+                    if (block.href) {
+                        return !excludePatterns.some(pattern => 
+                            block.href.startsWith(pattern)
+                        );
+                    }
+                    
+                    return true;
+                })
+                .map(block => {
+                    // Transform breadcrumbs to string format
+                    const transformedBlock = {
+                        breadcrumbs: Array.isArray(block.breadcrumbs) 
+                            ? block.breadcrumbs.join(' > ')
+                            : block.breadcrumbs,
+                        content: block.content
+                    };
+                    
+                    return transformedBlock;
+                })
         };
         
         // Save to new file
         const outputPath = join(process.cwd(), 'content_optimized.json');
-        await writeFile(
-            outputPath, 
-            JSON.stringify(optimizedData, null, 2), 
-            'utf8'
-        );
+        const outputJson = JSON.stringify(optimizedData, null, 2);
+        await writeFile(outputPath, outputJson, 'utf8');
+        
+        // Calculate new size
+        const newSize = Buffer.from(outputJson).length;
+        const sizeDifference = originalSize - newSize;
+        const percentReduction = ((sizeDifference / originalSize) * 100).toFixed(2);
         
         // Print statistics
         const removedCount = originalCount - optimizedData.blocks.length;
@@ -55,9 +70,13 @@ async function optimizeContent() {
         console.log(`Original blocks: ${originalCount}`);
         console.log(`Filtered blocks: ${optimizedData.blocks.length}`);
         console.log(`Removed ${removedCount} blocks`);
-        console.log('Exclude patterns used:');
+        console.log('\nSize optimization:');
+        console.log(`Original size: ${(originalSize / 1024).toFixed(2)} KB`);
+        console.log(`New size: ${(newSize / 1024).toFixed(2)} KB`);
+        console.log(`Reduced by: ${(sizeDifference / 1024).toFixed(2)} KB (${percentReduction}%)`);
+        console.log('\nExclude patterns used:');
         excludePatterns.forEach(pattern => console.log(` - ${pattern}`));
-        console.log(`Output saved to: ${outputPath}`);
+        console.log(`\nOutput saved to: ${outputPath}`);
 
     } catch (error) {
         if (error.code === 'ENOENT') {

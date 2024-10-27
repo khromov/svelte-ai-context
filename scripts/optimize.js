@@ -8,30 +8,6 @@ async function optimizeContent() {
         '/tutorial'
     ];
     
-    // Define the chapter structure
-    const chapterStructure = {
-        'Docs > SvelteKit': [
-            'Getting started',
-            'Core concepts',
-            'Advanced',
-            'Build and deploy',
-            'Best practices'
-        ],
-        'Docs > Svelte': [
-            'Introduction',
-            'Runes',
-            'Template syntax',
-            'Styling',
-            'Special elements',
-            'Runtime',
-            'Advanced',
-            'Testing',
-            'TypeScript',
-            'Custom elements',
-            'Packaging'
-        ]
-    };
-    
     try {
         // Read the JSON file from the current directory
         const filePath = join(process.cwd(), 'content.json');
@@ -48,12 +24,27 @@ async function optimizeContent() {
         // Store original size
         const originalSize = Buffer.from(JSON.stringify(data)).length;
         
-        // Initialize chapter structure
+        // First, analyze the breadcrumbs to build the structure
+        const chapterStructure = new Map();
+        data.blocks.forEach(block => {
+            if (!Array.isArray(block.breadcrumbs) || block.breadcrumbs.length < 3) return;
+            
+            // Get the first three levels
+            const [level1, level2, level3] = block.breadcrumbs;
+            const mainChapter = `${level1} > ${level2}`;
+            
+            if (!chapterStructure.has(mainChapter)) {
+                chapterStructure.set(mainChapter, new Set());
+            }
+            chapterStructure.get(mainChapter).add(level3);
+        });
+        
+        // Initialize chapter structure based on the analysis
         const chapters = {};
-        Object.entries(chapterStructure).forEach(([mainChapter, subChapters]) => {
+        chapterStructure.forEach((sections, mainChapter) => {
             chapters[mainChapter] = {};
-            subChapters.forEach(subChapter => {
-                chapters[mainChapter][subChapter] = [];
+            sections.forEach(section => {
+                chapters[mainChapter][section] = [];
             });
         });
         
@@ -73,33 +64,22 @@ async function optimizeContent() {
                 return true;
             })
             .forEach(block => {
-                const breadcrumbs = Array.isArray(block.breadcrumbs) 
-                    ? block.breadcrumbs.join(' > ')
-                    : block.breadcrumbs;
+                if (!Array.isArray(block.breadcrumbs) || block.breadcrumbs.length < 4) return;
                 
-                // Find matching main chapter
-                const mainChapter = Object.keys(chapterStructure).find(chapter => 
-                    breadcrumbs.startsWith(chapter)
-                );
+                // Extract the different levels
+                const [level1, level2, level3, ...restLevels] = block.breadcrumbs;
+                const mainChapter = `${level1} > ${level2}`;
+                const section = level3;
                 
-                if (mainChapter) {
-                    // Remove main chapter from breadcrumbs
-                    const remainingPath = breadcrumbs.replace(mainChapter + ' > ', '');
-                    
-                    // Find matching subchapter
-                    const subChapter = chapterStructure[mainChapter].find(sub => 
-                        remainingPath.startsWith(sub)
-                    );
-                    
-                    if (subChapter) {
-                        // Remove subchapter from the remaining path to get the final title
-                        const title = remainingPath.replace(subChapter + ' > ', '');
-                        
-                        chapters[mainChapter][subChapter].push({
-                            title,
-                            content: block.content
-                        });
-                    }
+                // Create the title from the remaining levels
+                const title = restLevels.join(' > ');
+                
+                // Add to the appropriate section if it exists
+                if (chapters[mainChapter]?.[section]) {
+                    chapters[mainChapter][section].push({
+                        title,
+                        content: block.content
+                    });
                 }
             });
         
@@ -140,12 +120,13 @@ async function optimizeContent() {
         
         // Print statistics
         console.log('Optimization complete:');
-        console.log('\nChapter statistics:');
-        Object.entries(chapters).forEach(([mainChapter, subChapters]) => {
+        console.log('\nChapter structure found:');
+        chapterStructure.forEach((sections, mainChapter) => {
             console.log(`\n${mainChapter}:`);
-            Object.entries(subChapters).forEach(([subChapter, blocks]) => {
-                if (blocks.length > 0) {
-                    console.log(`  ${subChapter}: ${blocks.length} blocks`);
+            sections.forEach(section => {
+                const blockCount = chapters[mainChapter][section].length;
+                if (blockCount > 0) {
+                    console.log(`  ${section}: ${blockCount} blocks`);
                 }
             });
         });

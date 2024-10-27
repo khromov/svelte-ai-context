@@ -2,6 +2,11 @@ import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 
 async function optimizeContent() {
+    // Define patterns to filter out
+    const excludePatterns = [
+        '/docs/svelte/legacy'
+    ];
+    
     try {
         // Read the JSON file from the current directory
         const filePath = join(process.cwd(), 'content.json');
@@ -15,10 +20,25 @@ async function optimizeContent() {
             throw new Error('Invalid JSON structure: expected "blocks" array');
         }
         
+        // Store original count
+        const originalCount = data.blocks.length;
+        
         // Create new object with filtered blocks
         const optimizedData = {
             ...data,
-            blocks: data.blocks.filter(block => block.content)
+            blocks: data.blocks.filter(block => {
+                // Filter out empty content
+                if (!block.content) return false;
+                
+                // Filter out excluded paths
+                if (block.href) {
+                    return !excludePatterns.some(pattern => 
+                        block.href.startsWith(pattern)
+                    );
+                }
+                
+                return true;
+            })
         };
         
         // Save to new file
@@ -30,10 +50,13 @@ async function optimizeContent() {
         );
         
         // Print statistics
+        const removedCount = originalCount - optimizedData.blocks.length;
         console.log('Optimization complete:');
-        console.log(`Original blocks: ${data.blocks.length}`);
+        console.log(`Original blocks: ${originalCount}`);
         console.log(`Filtered blocks: ${optimizedData.blocks.length}`);
-        console.log(`Removed ${data.blocks.length - optimizedData.blocks.length} blocks`);
+        console.log(`Removed ${removedCount} blocks`);
+        console.log('Exclude patterns used:');
+        excludePatterns.forEach(pattern => console.log(` - ${pattern}`));
         console.log(`Output saved to: ${outputPath}`);
 
     } catch (error) {

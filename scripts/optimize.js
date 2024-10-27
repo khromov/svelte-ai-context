@@ -52,15 +52,27 @@ async function optimizeContent() {
                 })
         };
         
-        // Save to new file
-        const outputPath = join(process.cwd(), 'content_optimized.json');
-        const outputJson = JSON.stringify(optimizedData, null, 2);
-        await writeFile(outputPath, outputJson, 'utf8');
+        // Create formatted JSON
+        const formattedJson = JSON.stringify(optimizedData, null, 2);
         
-        // Calculate new size
-        const newSize = Buffer.from(outputJson).length;
-        const sizeDifference = originalSize - newSize;
+        // Create minified JSON
+        const minifiedJson = JSON.stringify(optimizedData);
+        
+        // Save both versions
+        const formattedPath = join(process.cwd(), 'content_optimized.json');
+        const minifiedPath = join(process.cwd(), 'content_optimized_minified.json');
+        
+        await Promise.all([
+            writeFile(formattedPath, formattedJson, 'utf8'),
+            writeFile(minifiedPath, minifiedJson, 'utf8')
+        ]);
+        
+        // Calculate sizes
+        const formattedSize = Buffer.from(formattedJson).length;
+        const minifiedSize = Buffer.from(minifiedJson).length;
+        const sizeDifference = originalSize - formattedSize;
         const percentReduction = ((sizeDifference / originalSize) * 100).toFixed(2);
+        const minifiedReduction = ((originalSize - minifiedSize) / originalSize * 100).toFixed(2);
         
         // Print statistics
         const removedCount = originalCount - optimizedData.blocks.length;
@@ -68,13 +80,21 @@ async function optimizeContent() {
         console.log(`Original blocks: ${originalCount}`);
         console.log(`Filtered blocks: ${optimizedData.blocks.length}`);
         console.log(`Removed ${removedCount} blocks`);
+        
         console.log('\nSize optimization:');
         console.log(`Original size: ${(originalSize / 1024).toFixed(2)} KB`);
-        console.log(`New size: ${(newSize / 1024).toFixed(2)} KB`);
+        console.log('\nFormatted version:');
+        console.log(`Size: ${(formattedSize / 1024).toFixed(2)} KB`);
         console.log(`Reduced by: ${(sizeDifference / 1024).toFixed(2)} KB (${percentReduction}%)`);
+        console.log(`Saved to: ${formattedPath}`);
+        
+        console.log('\nMinified version:');
+        console.log(`Size: ${(minifiedSize / 1024).toFixed(2)} KB`);
+        console.log(`Reduced by: ${((originalSize - minifiedSize) / 1024).toFixed(2)} KB (${minifiedReduction}%)`);
+        console.log(`Saved to: ${minifiedPath}`);
+        
         console.log('\nExclude patterns used:');
         excludePatterns.forEach(pattern => console.log(` - ${pattern}`));
-        console.log(`\nOutput saved to: ${outputPath}`);
 
     } catch (error) {
         if (error.code === 'ENOENT') {

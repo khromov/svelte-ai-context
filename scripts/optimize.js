@@ -42,15 +42,13 @@ async function optimizeContent() {
                     return true;
                 })
                 .map(block => {
-                    // Transform breadcrumbs to string format
-                    const transformedBlock = {
-                        breadcrumbs: Array.isArray(block.breadcrumbs) 
+                    // Transform breadcrumbs to string format and rename to title
+                    return {
+                        title: Array.isArray(block.breadcrumbs) 
                             ? block.breadcrumbs.join(' > ')
                             : block.breadcrumbs,
                         content: block.content
                     };
-                    
-                    return transformedBlock;
                 })
         };
         

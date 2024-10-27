@@ -83,15 +83,22 @@ async function optimizeContent() {
                 }
             });
         
-        // Convert to array structure, removing empty chapters and subchapters
+        // Convert to array structure and merge content
         const optimizedData = Object.entries(chapters)
             .map(([mainChapter, subChapters]) => {
                 const nonEmptySubChapters = Object.entries(subChapters)
                     .filter(([_, blocks]) => blocks.length > 0)
-                    .map(([subChapter, blocks]) => ({
-                        section: subChapter,
-                        blocks
-                    }));
+                    .map(([subChapter, blocks]) => {
+                        // Merge all blocks into a single markdown string
+                        const mergedContent = blocks
+                            .map(block => `### ${block.title}\n\n${block.content}\n`)
+                            .join('\n');
+                        
+                        return {
+                            section: subChapter,
+                            content: mergedContent.trim()
+                        };
+                    });
                 
                 return {
                     chapter: mainChapter,
